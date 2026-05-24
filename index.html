@@ -35,7 +35,6 @@
         const ctx = canvas.getContext('2d');
         const colorPicker = document.getElementById('colorPicker');
 
-        // ВАШ ПОСТОЯННЫЙ ДОМЕН NGROK
         const SERVER_URL = "https://ngrok-free.dev"; 
 
         const userId = tg.initDataUnsafe?.user?.id || 12345;
@@ -44,7 +43,12 @@
         // Получение карты с вашего ПК
         async function fetchMap() {
             try {
-                const response = await fetch(`${SERVER_URL}/get_map`);
+                const response = await fetch(`${SERVER_URL}/get_map`, {
+                    headers: {
+                        // ИСПРАВЛЕНО: Пропускаем защитный экран ngrok
+                        "ngrok-skip-browser-warning": "true" 
+                    }
+                });
                 const data = await response.json();
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 for (const key in data) {
@@ -68,7 +72,11 @@
             try {
                 const response = await fetch(`${SERVER_URL}/draw`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        // ИСПРАВЛЕНО: Пропускаем защитный экран ngrok
+                        "ngrok-skip-browser-warning": "true"
+                    },
                     body: JSON.stringify({ user_id: userId, username: username, x: x, y: y, color: color })
                 });
                 const resData = await response.json();
@@ -82,7 +90,6 @@
             } catch (e) { alert("Кулдаун не прошел или сервер выключен"); }
         });
 
-        // Запуск постоянного обновления карты раз в 2 секунды
         setInterval(fetchMap, 2000);
         fetchMap();
     </script>
