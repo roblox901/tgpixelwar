@@ -40,14 +40,10 @@
         const userId = tg.initDataUnsafe?.user?.id || 12345;
         const username = tg.initDataUnsafe?.user?.username || "Guest";
 
-        // Получение карты с вашего ПК
         async function fetchMap() {
             try {
                 const response = await fetch(`${SERVER_URL}/get_map`, {
-                    headers: {
-                        // ИСПРАВЛЕНО: Пропускаем защитный экран ngrok
-                        "ngrok-skip-browser-warning": "true" 
-                    }
+                    headers: { "ngrok-skip-browser-warning": "true" }
                 });
                 const data = await response.json();
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -59,7 +55,6 @@
             } catch (e) { console.error("Ошибка обновления карты"); }
         }
 
-        // Клик по холсту для рисования
         canvas.addEventListener('click', async (e) => {
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -74,7 +69,6 @@
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        // ИСПРАВЛЕНО: Пропускаем защитный экран ngrok
                         "ngrok-skip-browser-warning": "true"
                     },
                     body: JSON.stringify({ user_id: userId, username: username, x: x, y: y, color: color })
