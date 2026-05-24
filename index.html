@@ -35,29 +35,27 @@
         const ctx = canvas.getContext('2d');
         const colorPicker = document.getElementById('colorPicker');
 
-        // Функция автоматической сборки карты из истории, которую передал бот
+        // ИСПРАВЛЕННАЯ ФУНКЦИЯ ЧТЕНИЯ КАРТЫ ИЗ ТЕЛЕГРАМА
         function loadMapFromTelegram() {
             try {
-                // Извлекаем переданный ботом лог пикселей из параметров ссылки
-                const urlParams = new URLSearchParams(window.location.search);
-                const mapDataRaw = urlParams.get('tgWebAppStartParam');
+                // Telegram передает параметр startapp внутрь tg.initDataUnsafe.start_param
+                const mapDataRaw = tg.initDataUnsafe?.start_param;
                 
                 if (mapDataRaw) {
-                    // Декодируем и разбираем строку (формат: X_Y_COLOR|X_Y_COLOR)
                     const pixels = decodeURIComponent(mapDataRaw).split('|');
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     
                     pixels.forEach(p => {
                         if(!p) return;
                         const [x, y, color] = p.split('_');
-                        if(x && y && color) {
+                        if(x !== undefined && y !== undefined && color) {
                             ctx.fillStyle = '#' + color;
                             ctx.fillRect(parseInt(x), parseInt(y), 1, 1);
                         }
                     });
                 }
             } catch (e) {
-                console.error("Ошибка воссоздания холста:", e);
+                console.error("Ошибка отрисовки холста:", e);
             }
         }
 
@@ -70,16 +68,17 @@
             const y = Math.floor((e.clientY - rect.top) * scaleY);
             const color = colorPicker.value;
 
+            // Рисуем на холсте локально
             ctx.fillStyle = color;
             ctx.fillRect(x, y, 1, 1);
 
-            // Отправляем ход обратно боту
+            // Отправляем данные боту в чат
             const clickData = JSON.stringify({ action: "draw", x: x, y: y, color: color });
             tg.sendData(clickData); 
             tg.close();
         });
 
-        // Запуск отрисовки при старте
+        // Запуск отрисовки
         loadMapFromTelegram();
     </script>
 </body>
