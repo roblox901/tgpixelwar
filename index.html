@@ -35,19 +35,18 @@
         const ctx = canvas.getContext('2d');
         const colorPicker = document.getElementById('colorPicker');
 
-        // ИСПРАВЛЕННАЯ ФУНКЦИЯ ЧТЕНИЯ КАРТЫ ИЗ ТЕЛЕГРАМА
         function loadMapFromTelegram() {
             try {
-                // Telegram передает параметр startapp внутрь tg.initDataUnsafe.start_param
                 const mapDataRaw = tg.initDataUnsafe?.start_param;
-                
                 if (mapDataRaw) {
-                    const pixels = decodeURIComponent(mapDataRaw).split('|');
+                    // Разделяем пиксели по букве 'p' (вместо '|')
+                    const pixels = mapDataRaw.split('p');
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     
                     pixels.forEach(p => {
                         if(!p) return;
-                        const [x, y, color] = p.split('_');
+                        // Разделяем координаты по букве 'c'
+                        const [x, y, color] = p.split('c');
                         if(x !== undefined && y !== undefined && color) {
                             ctx.fillStyle = '#' + color;
                             ctx.fillRect(parseInt(x), parseInt(y), 1, 1);
@@ -68,17 +67,16 @@
             const y = Math.floor((e.clientY - rect.top) * scaleY);
             const color = colorPicker.value;
 
-            // Рисуем на холсте локально
             ctx.fillStyle = color;
             ctx.fillRect(x, y, 1, 1);
 
-            // Отправляем данные боту в чат
-            const clickData = JSON.stringify({ action: "draw", x: x, y: y, color: color });
-            tg.sendData(clickData); 
+            // ОТПРАВЛЯЕМ КАК ПРОСТУЮ СТРОКУ, ТАК КАК ТЕЛЕГРАМ НЕ ПРИНИМАЕТ JSON ОБЪЕКТЫ!
+            // Формат строки: draw_X_Y_ЦВЕТ
+            const textData = `draw_${x}_${y}_${color}`;
+            tg.sendData(textData); 
             tg.close();
         });
 
-        // Запуск отрисовки
         loadMapFromTelegram();
     </script>
 </body>
