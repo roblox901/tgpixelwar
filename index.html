@@ -35,25 +35,24 @@
         const ctx = canvas.getContext('2d');
         const colorPicker = document.getElementById('colorPicker');
 
+        // Рисуем карту, которую бот передал нам в ссылку
         function loadMapFromTelegram() {
             try {
                 const mapDataRaw = tg.initDataUnsafe?.start_param;
                 if (mapDataRaw) {
-                    const pixels = decodeURIComponent(mapDataRaw).split('|');
+                    const pixels = decodeURIComponent(mapDataRaw).split('p');
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     
                     pixels.forEach(p => {
                         if(!p) return;
-                        const [x, y, color] = p.split('_');
+                        const [x, y, color] = p.split('c');
                         if(x !== undefined && y !== undefined && color) {
                             ctx.fillStyle = '#' + color;
                             ctx.fillRect(parseInt(x), parseInt(y), 1, 1);
                         }
                     });
                 }
-            } catch (e) {
-                console.error("Ошибка отрисовки холста:", e);
-            }
+            } catch (e) { console.error(e); }
         }
 
         canvas.addEventListener('click', (e) => {
@@ -63,13 +62,17 @@
             
             const x = Math.floor((e.clientX - rect.left) * scaleX);
             const y = Math.floor((e.clientY - rect.top) * scaleY);
-            const color = colorPicker.value;
+            
+            // Получаем чистый цвет без знака решетки (#ff0000 -> ff0000)
+            const color = colorPicker.value.replace('#', '');
 
-            ctx.fillStyle = color;
+            // Отрисовка у себя
+            ctx.fillStyle = '#' + color;
             ctx.fillRect(x, y, 1, 1);
 
-            const clickData = JSON.stringify({ action: "draw", x: x, y: y, color: color });
-            tg.sendData(clickData); 
+            // Отправляем БЕЗОПАСНУЮ строку без спецсимволов напрямую в ТГ боту
+            const textData = `draw_${x}_${y}_${color}`;
+            tg.sendData(textData); 
             tg.close();
         });
 
