@@ -16,14 +16,48 @@
             flex-direction: column;
             align-items: center;
         }
-        #controls { margin: 15px; display: flex; align-items: center; gap: 5px; }
-        canvas { border: 2px solid #444; background-color: white; image-rendering: pixelated; max-width: 95vw; max-height: 70vh; cursor: crosshair; }
-        input[type="color"] { border: none; width: 50px; height: 50px; border-radius: 5px; cursor: pointer; }
+        #controls { 
+            margin: 15px; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            gap: 10px; 
+            background: #222;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .inputs { display: flex; gap: 8px; align-items: center; }
+        input[type="number"] {
+            width: 60px;
+            padding: 6px;
+            border: 1px solid #444;
+            background: #333;
+            color: white;
+            border-radius: 5px;
+            text-align: center;
+        }
+        input[type="color"] { border: none; width: 40px; height: 40px; border-radius: 5px; cursor: pointer; }
+        button {
+            padding: 10px 20px;
+            background-color: #2481cc;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+        }
+        canvas { border: 2px solid #444; background-color: white; image-rendering: pixelated; max-width: 95vw; max-height: 50vh; }
     </style>
 </head>
 <body>
     <div id="controls">
-        <label>Цвет: <input type="color" id="colorPicker" value="#ff0000"></label>
+        <div class="inputs">
+            <label>X: <input type="number" id="coordX" min="0" max="299" value="150"></label>
+            <label>Y: <input type="number" id="coordY" min="0" max="299" value="150"></label>
+            <input type="color" id="colorPicker" value="#ff0000">
+        </div>
+        <button id="sendBtn">Поставить пиксель 🎨</button>
     </div>
     <canvas id="pixelCanvas" width="300" height="300"></canvas>
 
@@ -34,12 +68,16 @@
         const canvas = document.getElementById('pixelCanvas');
         const ctx = canvas.getContext('2d');
         const colorPicker = document.getElementById('colorPicker');
+        const inputX = document.getElementById('coordX');
+        const inputY = document.getElementById('coordY');
+        const sendBtn = document.getElementById('sendBtn');
 
         const SERVER_URL = "https://ngrok-free.dev"; 
 
         const userId = tg.initDataUnsafe?.user?.id || 12345;
         const username = tg.initDataUnsafe?.user?.username || "Guest";
 
+        // Получение карты с вашего ПК
         async function fetchMap() {
             try {
                 const response = await fetch(`${SERVER_URL}/get_map`, {
@@ -55,14 +93,16 @@
             } catch (e) { console.error("Ошибка обновления карты"); }
         }
 
-        canvas.addEventListener('click', async (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            
-            const x = Math.floor((e.clientX - rect.left) * scaleX);
-            const y = Math.floor((e.clientY - rect.top) * scaleY);
+        // Действие при нажатии на кнопку отправки координат
+        sendBtn.addEventListener('click', async () => {
+            const x = parseInt(inputX.value);
+            const y = parseInt(inputY.value);
             const color = colorPicker.value;
+
+            if (isNaN(x) || x < 0 || x >= 300 || isNaN(y) || y < 0 || y >= 300) {
+                alert("Координаты должны быть от 0 до 299!");
+                return;
+            }
 
             try {
                 const response = await fetch(`${SERVER_URL}/draw`, {
@@ -81,9 +121,10 @@
                 } else {
                     alert(resData.message);
                 }
-            } catch (e) { alert("Кулдаун не прошел или сервер выключен"); }
+            } catch (e) { alert("Ошибка: Кулдаун не прошел или сервер выключен"); }
         });
 
+        // Запуск постоянного обновления холста раз в 2 секунды
         setInterval(fetchMap, 2000);
         fetchMap();
     </script>
