@@ -35,6 +35,27 @@
         const ctx = canvas.getContext('2d');
         const colorPicker = document.getElementById('colorPicker');
 
+        function loadMapFromTelegram() {
+            try {
+                const mapDataRaw = tg.initDataUnsafe?.start_param;
+                if (mapDataRaw) {
+                    const pixels = decodeURIComponent(mapDataRaw).split('|');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    pixels.forEach(p => {
+                        if(!p) return;
+                        const [x, y, color] = p.split('_');
+                        if(x !== undefined && y !== undefined && color) {
+                            ctx.fillStyle = '#' + color;
+                            ctx.fillRect(parseInt(x), parseInt(y), 1, 1);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("Ошибка отрисовки холста:", e);
+            }
+        }
+
         canvas.addEventListener('click', (e) => {
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -44,17 +65,15 @@
             const y = Math.floor((e.clientY - rect.top) * scaleY);
             const color = colorPicker.value;
 
-            // Сразу красим точку локально на экране для теста
             ctx.fillStyle = color;
             ctx.fillRect(x, y, 1, 1);
 
-            // Мгновенно отправляем текстовую команду боту в чат
-            const textData = `draw_${x}_${y}_${color}`;
-            tg.sendData(textData); 
-            
-            // Закрываем приложение
+            const clickData = JSON.stringify({ action: "draw", x: x, y: y, color: color });
+            tg.sendData(clickData); 
             tg.close();
         });
+
+        loadMapFromTelegram();
     </script>
 </body>
 </html>
