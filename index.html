@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pixel Battle</title>
-    <!-- ИСПРАВЛЕНО: Подключаем правильный скрипт Telegram WebApp API -->
     <script src="https://telegram.org"></script>
     <style>
         body {
@@ -17,48 +16,14 @@
             flex-direction: column;
             align-items: center;
         }
-        #controls { 
-            margin: 15px; 
-            display: flex; 
-            flex-direction: column;
-            align-items: center; 
-            gap: 10px; 
-            background: #222;
-            padding: 15px;
-            border-radius: 10px;
-        }
-        .inputs { display: flex; gap: 8px; align-items: center; }
-        input[type="number"] {
-            width: 60px;
-            padding: 6px;
-            border: 1px solid #444;
-            background: #333;
-            color: white;
-            border-radius: 5px;
-            text-align: center;
-        }
-        input[type="color"] { border: none; width: 40px; height: 40px; border-radius: 5px; cursor: pointer; }
-        button {
-            padding: 10px 20px;
-            background-color: #2481cc;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
-        }
-        canvas { border: 2px solid #444; background-color: white; image-rendering: pixelated; max-width: 95vw; max-height: 50vh; }
+        #controls { margin: 15px; display: flex; align-items: center; gap: 5px; }
+        canvas { border: 2px solid #444; background-color: white; image-rendering: pixelated; max-width: 95vw; max-height: 70vh; cursor: crosshair; }
+        input[type="color"] { border: none; width: 50px; height: 50px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
     <div id="controls">
-        <div class="inputs">
-            <label>X: <input type="number" id="coordX" min="0" max="299" value="150"></label>
-            <label>Y: <input type="number" id="coordY" min="0" max="299" value="150"></label>
-            <input type="color" id="colorPicker" value="#ff0000">
-        </div>
-        <button id="sendBtn">Поставить пиксель 🎨</button>
+        <label>Цвет: <input type="color" id="colorPicker" value="#ff0000"></label>
     </div>
     <canvas id="pixelCanvas" width="300" height="300"></canvas>
 
@@ -69,54 +34,57 @@
         const canvas = document.getElementById('pixelCanvas');
         const ctx = canvas.getContext('2d');
         const colorPicker = document.getElementById('colorPicker');
-        const inputX = document.getElementById('coordX');
-        const inputY = document.getElementById('coordY');
-        const sendBtn = document.getElementById('sendBtn');
 
-        // Отрисовка карты, переданной из бота при старте
-        function loadMapFromTelegram() {
+        // ВАШ ПОСТОЯННЫЙ ДОМЕН NGROK
+        const SERVER_URL = "https://ngrok-free.dev"; 
+
+        const userId = tg.initDataUnsafe?.user?.id || 12345;
+        const username = tg.initDataUnsafe?.user?.username || "Guest";
+
+        // Получение карты с вашего ПК
+        async function fetchMap() {
             try {
-                const mapDataRaw = tg.initDataUnsafe?.start_param;
-                if (mapDataRaw) {
-                    const pixels = decodeURIComponent(mapDataRaw).split('p');
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    
-                    pixels.forEach(p => {
-                        if(!p) return;
-                        const [x, y, color] = p.split('c');
-                        if(x !== undefined && y !== undefined && color) {
-                            ctx.fillStyle = '#' + color;
-                            ctx.fillRect(parseInt(x), parseInt(y), 1, 1);
-                        }
-                    });
+                const response = await fetch(`${SERVER_URL}/get_map`);
+                const data = await response.json();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                for (const key in data) {
+                    const [x, y] = key.split(',').map(Number);
+                    ctx.fillStyle = data[key];
+                    ctx.fillRect(x, y, 1, 1);
                 }
-            } catch (e) { console.error("Ошибка загрузки карты:", e); }
+            } catch (e) { console.error("Ошибка обновления карты"); }
         }
 
-        sendBtn.addEventListener('click', () => {
-            const x = parseInt(inputX.value);
-            const y = parseInt(inputY.value);
+        // Клик по холсту для рисования
+        canvas.addEventListener('click', async (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
             
-            // ИСПРАВЛЕНО: Безопасно получаем hex-код цвета без решетки
-            const hexColor = colorPicker.value.replace('#', '');
+            const x = Math.floor((e.clientX - rect.left) * scaleX);
+            const y = Math.floor((e.clientY - rect.top) * scaleY);
+            const color = colorPicker.value;
 
-            if (isNaN(x) || x < 0 || x >= 300 || isNaN(y) || y < 0 || y >= 300) {
-                alert("Координаты должны быть от 0 до 299!");
-                return;
-            }
-
-            // ИСПРАВЛЕНО: Отрисовываем точку на холсте перед закрытием окна
-            ctx.fillStyle = '#' + hexColor;
-            ctx.fillRect(x, y, 1, 1);
-
-            // Отправляем точные данные боту напрямую в чат
-            const textData = `draw_${x}_${y}_${hexColor}`;
-            tg.sendData(textData); 
-            tg.close();
+            try {
+                const response = await fetch(`${SERVER_URL}/draw`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, username: username, x: x, y: y, color: color })
+                });
+                const resData = await response.json();
+                
+                if (resData.status === "ok") {
+                    ctx.fillStyle = color;
+                    ctx.fillRect(x, y, 1, 1);
+                } else {
+                    alert(resData.message);
+                }
+            } catch (e) { alert("Кулдаун не прошел или сервер выключен"); }
         });
 
-        // ИСПРАВЛЕНО: Запускаем отрисовку карты при старте
-        loadMapFromTelegram();
+        // Запуск постоянного обновления карты раз в 2 секунды
+        setInterval(fetchMap, 2000);
+        fetchMap();
     </script>
 </body>
 </html>
