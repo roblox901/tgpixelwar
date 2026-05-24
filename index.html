@@ -6,33 +6,107 @@
     <title>Pixel Battle</title>
     <script src="https://telegram.org"></script>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #111; color: white; text-align: center; padding-top: 50px; }
-        #controls { background: #222; padding: 20px; border-radius: 10px; display: inline-block; }
-        .inputs { margin-bottom: 15px; }
-        input[type="number"] { width: 60px; padding: 5px; margin: 0 5px; background: #333; color: white; border: 1px solid #444; text-align: center; }
-        button { padding: 10px 20px; background: #2481cc; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #111;
+            color: white;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #controls { 
+            margin: 15px; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            gap: 10px; 
+            background: #222;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .inputs { display: flex; gap: 8px; align-items: center; }
+        input[type="number"] {
+            width: 60px;
+            padding: 6px;
+            border: 1px solid #444;
+            background: #333;
+            color: white;
+            border-radius: 5px;
+            text-align: center;
+        }
+        input[type="color"] { border: none; width: 40px; height: 40px; border-radius: 5px; cursor: pointer; }
+        button {
+            padding: 10px 20px;
+            background-color: #2481cc;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+        }
+        canvas { border: 2px solid #444; background-color: white; image-rendering: pixelated; max-width: 95vw; max-height: 50vh; }
     </style>
 </head>
 <body>
     <div id="controls">
         <div class="inputs">
-            X: <input type="number" id="coordX" value="150">
-            Y: <input type="number" id="coordY" value="150">
+            <label>X: <input type="number" id="coordX" min="0" max="299" value="150"></label>
+            <label>Y: <input type="number" id="coordY" min="0" max="299" value="150"></label>
             <input type="color" id="colorPicker" value="#ff0000">
         </div>
         <button id="sendBtn">Поставить пиксель 🎨</button>
     </div>
+    <canvas id="pixelCanvas" width="300" height="300"></canvas>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
+        const canvas = document.getElementById('pixelCanvas');
+        const ctx = canvas.getContext('2d');
+        const colorPicker = document.getElementById('colorPicker');
+        const inputX = document.getElementById('coordX');
+        const inputY = document.getElementById('coordY');
+        const sendBtn = document.getElementById('sendBtn');
+
         const SERVER_URL = "https://ngrok-free.dev"; 
 
-        document.getElementById('sendBtn').addEventListener('click', async () => {
-            const x = parseInt(document.getElementById('coordX').value);
-            const y = parseInt(document.getElementById('coordY').value);
-            const color = document.getElementById('colorPicker').value;
+        const userId = tg.initDataUnsafe?.user?.id || 12345;
+        const username = tg.initDataUnsafe?.user?.username || "Guest";
+
+        // Запрос карты с компьютера
+        async function fetchMap() {
+            try {
+                const response = await fetch(`${SERVER_URL}/get_map`, {
+                    headers: { "ngrok-skip-browser-warning": "true" }
+                });
+                const data = await response.json();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Перебираем полученные пиксели и рисуем их
+                for (const key in data) {
+                    const coords = key.split(',');
+                    const x = parseInt(coords[0]);
+                    const y = parseInt(coords[1]);
+                    ctx.fillStyle = data[key];
+                    ctx.fillRect(x, y, 1, 1);
+                }
+            } catch (e) { console.error("Ошибка обновления карты:", e); }
+        }
+
+        // Отправка пикселя по кнопке
+        sendBtn.addEventListener('click', async () => {
+            const x = parseInt(inputX.value);
+            const y = parseInt(inputY.value);
+            const color = colorPicker.value;
+
+            if (isNaN(x) || x < 0 || x >= 300 || isNaN(y) || y < 0 || y >= 300) {
+                alert("Координаты должны быть от 0 до 299!");
+                return;
+            }
 
             try {
                 const response = await fetch(`${SERVER_URL}/draw`, {
@@ -41,20 +115,23 @@
                         'Content-Type': 'application/json',
                         "ngrok-skip-browser-warning": "true"
                     },
-                    body: JSON.stringify({ 
-                        user_id: tg.initDataUnsafe?.user?.id || 123, 
-                        username: tg.initDataUnsafe?.user?.username || "Guest", 
-                        x: x, 
-                        y: y, 
-                        color: color 
-                    })
+                    body: JSON.stringify({ user_id: userId, username: username, x: x, y: y, color: color })
                 });
                 const resData = await response.json();
-                alert("Ответ сервера: " + JSON.stringify(resData));
-            } catch (e) { 
-                alert("Ошибка отправки запроса: " + e); 
-            }
+                
+                if (resData.status === "ok") {
+                    // Рисуем точку на экране только после одобрения сервером
+                    ctx.fillStyle = color;
+                    ctx.fillRect(x, y, 1, 1);
+                } else {
+                    alert(resData.message);
+                }
+            } catch (e) { alert("Ошибка: Сервер не отвечает."); }
         });
+
+        // Карта обновляется автоматически каждые 3 секунды
+        setInterval(fetchMap, 3000);
+        fetchMap();
     </script>
 </body>
 </html>
