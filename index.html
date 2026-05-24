@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel Battle</title>
+    <script src="https://telegram.org"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #111;
+            color: white;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #controls { margin: 15px; display: flex; align-items: center; gap: 5px; }
+        canvas { border: 2px solid #444; background-color: white; image-rendering: pixelated; max-width: 95vw; max-height: 70vh; }
+        input[type="color"] { border: none; width: 50px; height: 50px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <label>Цвет: <input type="color" id="colorPicker" value="#ff0000"></label>
+    </div>
+    <canvas id="pixelCanvas" width="300" height="300"></canvas>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        const canvas = document.getElementById('pixelCanvas');
+        const ctx = canvas.getContext('2d');
+        const colorPicker = document.getElementById('colorPicker');
+
+        // Функция автоматической сборки карты из истории, которую передал бот
+        function loadMapFromTelegram() {
+            try {
+                // Извлекаем переданный ботом лог пикселей из параметров ссылки
+                const urlParams = new URLSearchParams(window.location.search);
+                const mapDataRaw = urlParams.get('tgWebAppStartParam');
+                
+                if (mapDataRaw) {
+                    // Декодируем и разбираем строку (формат: X_Y_COLOR|X_Y_COLOR)
+                    const pixels = decodeURIComponent(mapDataRaw).split('|');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    pixels.forEach(p => {
+                        if(!p) return;
+                        const [x, y, color] = p.split('_');
+                        if(x && y && color) {
+                            ctx.fillStyle = '#' + color;
+                            ctx.fillRect(parseInt(x), parseInt(y), 1, 1);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("Ошибка воссоздания холста:", e);
+            }
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const x = Math.floor((e.clientX - rect.left) * scaleX);
+            const y = Math.floor((e.clientY - rect.top) * scaleY);
+            const color = colorPicker.value;
+
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, 1, 1);
+
+            // Отправляем ход обратно боту
+            const clickData = JSON.stringify({ action: "draw", x: x, y: y, color: color });
+            tg.sendData(clickData); 
+            tg.close();
+        });
+
+        // Запуск отрисовки при старте
+        loadMapFromTelegram();
+    </script>
+</body>
+</html>
