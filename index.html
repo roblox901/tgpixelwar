@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pixel Battle</title>
+    <!-- ИСПРАВЛЕНО: Подключаем правильный скрипт Telegram WebApp API -->
     <script src="https://telegram.org"></script>
     <style>
         body {
@@ -65,26 +66,57 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
+        const canvas = document.getElementById('pixelCanvas');
+        const ctx = canvas.getContext('2d');
         const colorPicker = document.getElementById('colorPicker');
         const inputX = document.getElementById('coordX');
         const inputY = document.getElementById('coordY');
         const sendBtn = document.getElementById('sendBtn');
 
+        // Отрисовка карты, переданной из бота при старте
+        function loadMapFromTelegram() {
+            try {
+                const mapDataRaw = tg.initDataUnsafe?.start_param;
+                if (mapDataRaw) {
+                    const pixels = decodeURIComponent(mapDataRaw).split('p');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    pixels.forEach(p => {
+                        if(!p) return;
+                        const [x, y, color] = p.split('c');
+                        if(x !== undefined && y !== undefined && color) {
+                            ctx.fillStyle = '#' + color;
+                            ctx.fillRect(parseInt(x), parseInt(y), 1, 1);
+                        }
+                    });
+                }
+            } catch (e) { console.error("Ошибка загрузки карты:", e); }
+        }
+
         sendBtn.addEventListener('click', () => {
             const x = parseInt(inputX.value);
             const y = parseInt(inputY.value);
-            const color = colorPicker.value.replace('#', '');
+            
+            // ИСПРАВЛЕНО: Безопасно получаем hex-код цвета без решетки
+            const hexColor = colorPicker.value.replace('#', '');
 
             if (isNaN(x) || x < 0 || x >= 300 || isNaN(y) || y < 0 || y >= 300) {
                 alert("Координаты должны быть от 0 до 299!");
                 return;
             }
 
-            // Шлем простую текстовую строку боту напрямую в чат
-            const textData = `draw_${x}_${y}_${color}`;
+            // ИСПРАВЛЕНО: Отрисовываем точку на холсте перед закрытием окна
+            ctx.fillStyle = '#' + hexColor;
+            ctx.fillRect(x, y, 1, 1);
+
+            // Отправляем точные данные боту напрямую в чат
+            const textData = `draw_${x}_${y}_${hexColor}`;
             tg.sendData(textData); 
             tg.close();
         });
+
+        // ИСПРАВЛЕНО: Запускаем отрисовку карты при старте
+        loadMapFromTelegram();
     </script>
 </body>
 </html>
